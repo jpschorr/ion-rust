@@ -1,7 +1,7 @@
 use crate::ion_writer::IonWriter;
 use crate::raw_symbol_token_ref::{AsRawSymbolTokenRef, RawSymbolTokenRef};
 use crate::result::IonResult;
-use crate::symbol_table::SymbolTable;
+use crate::symbol_table::{SymbolLookup, SymbolTable};
 use crate::text::raw_text_writer::RawTextWriter;
 use crate::text::raw_text_writer::RawTextWriterBuilder;
 use crate::TextKind;

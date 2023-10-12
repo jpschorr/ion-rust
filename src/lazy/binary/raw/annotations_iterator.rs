@@ -1,4 +1,5 @@
 use crate::lazy::binary::immutable_buffer::ImmutableBuffer;
+use crate::raw_symbol_token_ref::AsRawSymbolTokenRef;
 use crate::{IonResult, RawSymbolTokenRef};
 
 /// Iterates over a slice of bytes, lazily reading them as a sequence of VarUInt symbol IDs.
@@ -9,6 +10,23 @@ pub struct RawBinaryAnnotationsIterator<'a> {
 impl<'a> RawBinaryAnnotationsIterator<'a> {
     pub(crate) fn new(buffer: ImmutableBuffer<'a>) -> RawBinaryAnnotationsIterator<'a> {
         RawBinaryAnnotationsIterator { buffer }
+    }
+}
+
+impl<'data> RawBinaryAnnotationsIterator<'data> {
+    pub fn are<I: IntoIterator<Item = RawSymbolTokenRef<'data>>>(
+        mut self,
+        annotations_to_match: I,
+    ) -> IonResult<bool> {
+        for to_match in annotations_to_match {
+            match self.next() {
+                Some(Ok(actual)) if actual == to_match => {}
+                Some(Err(e)) => return Err(e),
+                Some(_) | None => return Ok(false),
+            }
+        }
+        // We've exhausted `annotations_to_match`, now make sure `self` is empty
+        Ok(self.next().is_none())
     }
 }
 

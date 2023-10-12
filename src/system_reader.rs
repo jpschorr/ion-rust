@@ -8,7 +8,7 @@ use crate::ion_reader::IonReader;
 use crate::raw_reader::{Expandable, RawReader, RawStreamItem};
 use crate::raw_symbol_token::RawSymbolToken;
 use crate::result::{IonError, IonFailure, IonResult};
-use crate::symbol_table::SymbolTable;
+use crate::symbol_table::{SymbolLookup, SymbolTable};
 use crate::system_reader::LstPosition::*;
 use crate::IonType;
 use crate::{Blob, Clob, Decimal, Int, Str, Symbol, Timestamp};

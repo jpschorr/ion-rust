@@ -30,10 +30,11 @@ experimental-ion-hash = ["digest"]
 # These are not guaranteed any sort of API stability and may also have non-standard
 # Ion behavior (e.g., draft Ion 1.1 capabilities).
 experimental = [
+  "experimental-path-extractor",
   "experimental-lazy-reader",
   "experimental-reader",
   "experimental-writer",
-  "experimental-streaming"
+  "experimental-streaming",
 ]
 
 # Experimental streaming APIs
@@ -52,6 +53,16 @@ experimental-writer = []
 # an inexpensive form of 'rewind' functionality.
 experimental-lazy-reader = []
 
+experimental-path-extractor = ["experimental-lazy-reader", "dep:logos"]
+
+[lib]
+bench = false
+
+[[bench]]
+name = "bench_symtab"
+harness = false
+required-features = ["experimental-reader"]
+
 [dependencies]
 base64 = "0.12"
 bytes = "0.4"
@@ -69,6 +80,9 @@ arrayvec = "0.7"
 smallvec = {version ="1.9.0", features = ["const_generics"]}
 digest = { version = "0.9", optional = true }
 sha2 = { version = "0.9", optional = true }
+logos = { version = "0.13", optional = true }
+lasso = "0.7"
+fxhash = "0.2"
 
 [dev-dependencies]
 rstest = "0.17.0"
@@ -77,6 +91,7 @@ rstest_reuse = "0.5.0"
 walkdir = "2.3"
 test-generator = "0.3"
 memmap = "0.7.0"
+criterion = "0.5"
 
 [profile.release]
 lto = true

@@ -5,7 +5,9 @@ use std::ops::Range;
 use nom::character::streaming::satisfy;
 
 use crate::lazy::decoder::private::LazyContainerPrivate;
-use crate::lazy::decoder::{LazyDecoder, LazyRawSequence, LazyRawValue};
+use crate::lazy::decoder::{
+    LazyDecoder, LazyRawAnnotated, LazyRawSequence, LazyRawTyped, LazyRawValue,
+};
 use crate::lazy::encoding::TextEncoding;
 use crate::lazy::text::buffer::TextBufferView;
 use crate::lazy::text::parse_result::AddContext;
@@ -35,16 +37,20 @@ impl<'data> LazyContainerPrivate<'data, TextEncoding> for LazyRawTextSequence<'d
     }
 }
 
-impl<'data> LazyRawSequence<'data, TextEncoding> for LazyRawTextSequence<'data> {
-    type Iterator = RawTextSequenceIterator<'data>;
-
-    fn annotations(&self) -> <TextEncoding as LazyDecoder<'data>>::AnnotationsIterator {
-        todo!("lazy sequence annotations")
-    }
-
+impl<'data> LazyRawTyped for LazyRawTextSequence<'data> {
     fn ion_type(&self) -> IonType {
         self.value.ion_type()
     }
+}
+
+impl<'data> LazyRawAnnotated<'data, TextEncoding> for LazyRawTextSequence<'data> {
+    fn annotations(&self) -> <TextEncoding as LazyDecoder<'data>>::AnnotationsIterator {
+        todo!("lazy sequence annotations")
+    }
+}
+
+impl<'data> LazyRawSequence<'data, TextEncoding> for LazyRawTextSequence<'data> {
+    type Iterator = RawTextSequenceIterator<'data>;
 
     fn iter(&self) -> Self::Iterator {
         LazyRawTextSequence::iter(self)

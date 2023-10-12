@@ -4,6 +4,7 @@ use crate::lazy::r#struct::LazyStruct;
 use crate::lazy::sequence::LazySequence;
 use crate::lazy::str_ref::StrRef;
 use crate::result::IonFailure;
+use crate::symbol_table::SymbolLookup;
 use crate::{Decimal, Int, IonError, IonResult, IonType, SymbolRef, Timestamp};
 use std::fmt::{Debug, Formatter};
 
@@ -14,7 +15,7 @@ use std::fmt::{Debug, Formatter};
 /// Unlike a [Value], a `ValueRef` avoids heap allocation whenever possible, choosing to point instead
 /// to existing resources. Numeric values and timestamps are stored within the `ValueRef` itself.
 /// Text values and lobs hold references to either a slice of input data or text in the symbol table.
-pub enum ValueRef<'top, 'data, D: LazyDecoder<'data>> {
+pub enum ValueRef<'top, 'data, D: LazyDecoder<'data>, S: SymbolLookup> {
     Null(IonType),
     Bool(bool),
     Int(Int),
@@ -25,12 +26,14 @@ pub enum ValueRef<'top, 'data, D: LazyDecoder<'data>> {
     Symbol(SymbolRef<'top>),
     Blob(&'data [u8]),
     Clob(&'data [u8]),
-    SExp(LazySequence<'top, 'data, D>),
-    List(LazySequence<'top, 'data, D>),
-    Struct(LazyStruct<'top, 'data, D>),
+    SExp(LazySequence<'top, 'data, D, S>),
+    List(LazySequence<'top, 'data, D, S>),
+    Struct(LazyStruct<'top, 'data, D, S>),
 }
 
-impl<'top, 'data, D: LazyDecoder<'data>> PartialEq for ValueRef<'top, 'data, D> {
+impl<'top, 'data, D: LazyDecoder<'data>, S: SymbolLookup> PartialEq
+    for ValueRef<'top, 'data, D, S>
+{
     fn eq(&self, other: &Self) -> bool {
         use ValueRef::*;
         match (self, other) {
@@ -51,11 +54,11 @@ impl<'top, 'data, D: LazyDecoder<'data>> PartialEq for ValueRef<'top, 'data, D> 
     }
 }
 
-impl<'top, 'data, D: LazyDecoder<'data>> Debug for ValueRef<'top, 'data, D> {
+impl<'top, 'data, D: LazyDecoder<'data>, S: SymbolLookup> Debug for ValueRef<'top, 'data, D, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use ValueRef::*;
         match self {
-            Null(ion_type) => write!(f, "null.{}", ion_type),
+            Null(ion_type) => write!(f, "1null.{}", ion_type),
             Bool(b) => write!(f, "{}", b),
             Int(i) => write!(f, "{}", i),
             Float(float) => write!(f, "{}", float),
@@ -72,10 +75,12 @@ impl<'top, 'data, D: LazyDecoder<'data>> Debug for ValueRef<'top, 'data, D> {
     }
 }
 
-impl<'top, 'data, D: LazyDecoder<'data>> TryFrom<ValueRef<'top, 'data, D>> for Value {
+impl<'top, 'data, D: LazyDecoder<'data>, S: SymbolLookup> TryFrom<ValueRef<'top, 'data, D, S>>
+    for Value
+{
     type Error = IonError;
 
-    fn try_from(value: ValueRef<'top, 'data, D>) -> Result<Self, Self::Error> {
+    fn try_from(value: ValueRef<'top, 'data, D, S>) -> Result<Self, Self::Error> {
         use ValueRef::*;
         let value = match value {
             Null(ion_type) => Value::Null(ion_type),
@@ -96,7 +101,7 @@ impl<'top, 'data, D: LazyDecoder<'data>> TryFrom<ValueRef<'top, 'data, D>> for V
     }
 }
 
-impl<'top, 'data, D: LazyDecoder<'data>> ValueRef<'top, 'data, D> {
+impl<'top, 'data, D: LazyDecoder<'data>, S: SymbolLookup> ValueRef<'top, 'data, D, S> {
     pub fn expect_null(self) -> IonResult<IonType> {
         if let ValueRef::Null(ion_type) = self {
             Ok(ion_type)
@@ -185,7 +190,7 @@ impl<'top, 'data, D: LazyDecoder<'data>> ValueRef<'top, 'data, D> {
         }
     }
 
-    pub fn expect_list(self) -> IonResult<LazySequence<'top, 'data, D>> {
+    pub fn expect_list(self) -> IonResult<LazySequence<'top, 'data, D, S>> {
         if let ValueRef::List(s) = self {
             Ok(s)
         } else {
@@ -193,7 +198,7 @@ impl<'top, 'data, D: LazyDecoder<'data>> ValueRef<'top, 'data, D> {
         }
     }
 
-    pub fn expect_sexp(self) -> IonResult<LazySequence<'top, 'data, D>> {
+    pub fn expect_sexp(self) -> IonResult<LazySequence<'top, 'data, D, S>> {
         if let ValueRef::SExp(s) = self {
             Ok(s)
         } else {
@@ -201,7 +206,7 @@ impl<'top, 'data, D: LazyDecoder<'data>> ValueRef<'top, 'data, D> {
         }
     }
 
-    pub fn expect_struct(self) -> IonResult<LazyStruct<'top, 'data, D>> {
+    pub fn expect_struct(self) -> IonResult<LazyStruct<'top, 'data, D, S>> {
         if let ValueRef::Struct(s) = self {
             Ok(s)
         } else {

@@ -18,7 +18,7 @@ impl<'data> StrRef<'data> {
         Str::from(self)
     }
 
-    pub fn text(&self) -> &str {
+    pub fn text(&'data self) -> &'data str {
         self.as_ref()
     }
 }

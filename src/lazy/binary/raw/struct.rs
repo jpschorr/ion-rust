@@ -3,11 +3,11 @@ use crate::lazy::binary::raw::annotations_iterator::RawBinaryAnnotationsIterator
 use crate::lazy::binary::raw::reader::DataSource;
 use crate::lazy::binary::raw::value::LazyRawBinaryValue;
 use crate::lazy::decoder::private::{LazyContainerPrivate, LazyRawFieldPrivate};
-use crate::lazy::decoder::{LazyRawField, LazyRawStruct};
+use crate::lazy::decoder::{LazyRawAnnotated, LazyRawField, LazyRawStruct, LazyRawTyped};
 use crate::lazy::encoding::BinaryEncoding;
 use crate::lazy::raw_value_ref::RawValueRef;
 use crate::raw_symbol_token_ref::AsRawSymbolTokenRef;
-use crate::{IonResult, RawSymbolTokenRef};
+use crate::{IonResult, IonType, RawSymbolTokenRef};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
@@ -46,6 +46,7 @@ impl<'data> LazyRawBinaryStruct<'data> {
     }
 
     fn find(&self, name: &str) -> IonResult<Option<LazyRawBinaryValue<'data>>> {
+        // TODO can this actually work? the 'find' is turned into a COW, but the field.name() is a symbolId
         let name: RawSymbolTokenRef = name.as_raw_symbol_token_ref();
         for field in self {
             let field = field?;
@@ -75,13 +76,21 @@ impl<'data> LazyContainerPrivate<'data, BinaryEncoding> for LazyRawBinaryStruct<
     }
 }
 
-impl<'data> LazyRawStruct<'data, BinaryEncoding> for LazyRawBinaryStruct<'data> {
-    type Field = LazyRawBinaryField<'data>;
-    type Iterator = RawBinaryStructIterator<'data>;
+impl<'data> LazyRawTyped for LazyRawBinaryStruct<'data> {
+    fn ion_type(&self) -> IonType {
+        self.value.ion_type()
+    }
+}
 
+impl<'data> LazyRawAnnotated<'data, BinaryEncoding> for LazyRawBinaryStruct<'data> {
     fn annotations(&self) -> RawBinaryAnnotationsIterator<'data> {
         self.annotations()
     }
+}
+
+impl<'data> LazyRawStruct<'data, BinaryEncoding> for LazyRawBinaryStruct<'data> {
+    type Field = LazyRawBinaryField<'data>;
+    type Iterator = RawBinaryStructIterator<'data>;
 
     fn find(&self, name: &str) -> IonResult<Option<LazyRawBinaryValue<'data>>> {
         self.find(name)

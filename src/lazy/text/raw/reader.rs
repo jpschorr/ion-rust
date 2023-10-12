@@ -74,7 +74,7 @@ impl<'data> LazyRawReader<'data, TextEncoding> for LazyRawTextReader<'data> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lazy::decoder::{LazyRawStruct, LazyRawValue};
+    use crate::lazy::decoder::{LazyRawAnnotated, LazyRawStruct, LazyRawValue};
     use crate::lazy::raw_value_ref::RawValueRef;
     use crate::{IonType, RawSymbolTokenRef, Timestamp};
 

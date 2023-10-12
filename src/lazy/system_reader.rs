@@ -3,7 +3,9 @@ use crate::result::IonFailure;
 use crate::{IonResult, IonType, RawSymbolTokenRef, SymbolTable};
 
 use crate::lazy::binary::raw::reader::LazyRawBinaryReader;
-use crate::lazy::decoder::{LazyRawField, LazyRawReader, LazyRawStruct, LazyRawValue};
+use crate::lazy::decoder::{
+    LazyRawAnnotated, LazyRawField, LazyRawReader, LazyRawStruct, LazyRawTyped, LazyRawValue,
+};
 
 use crate::lazy::decoder::private::LazyContainerPrivate;
 use crate::lazy::decoder::LazyDecoder;
@@ -86,16 +88,21 @@ struct PendingLst {
 }
 
 impl<'data> LazyBinarySystemReader<'data> {
-    pub(crate) fn new(ion_data: &'data [u8]) -> LazyBinarySystemReader<'data> {
-        let raw_reader = LazyRawBinaryReader::new(ion_data);
+    pub(crate) fn from_reader<D: LazyDecoder<'data>>(
+        reader: D::Reader,
+    ) -> LazySystemReader<'data, D> {
         LazySystemReader {
-            raw_reader,
+            raw_reader: reader,
             symbol_table: SymbolTable::new(),
             pending_lst: PendingLst {
                 is_lst_append: false,
                 symbols: Vec::new(),
             },
         }
+    }
+    pub(crate) fn new(ion_data: &'data [u8]) -> LazyBinarySystemReader<'data> {
+        let raw_reader = LazyRawBinaryReader::new(ion_data);
+        Self::from_reader(raw_reader)
     }
 }
 
@@ -114,7 +121,9 @@ impl<'data, D: LazyDecoder<'data>> LazySystemReader<'data, D> {
 
     /// Returns the next top-level stream item (IVM, Symbol Table, Value, or Nothing) as a
     /// [`SystemStreamItem`].
-    pub fn next_item<'top>(&'top mut self) -> IonResult<SystemStreamItem<'top, 'data, D>> {
+    pub fn next_item<'top>(
+        &'top mut self,
+    ) -> IonResult<SystemStreamItem<'top, 'data, D, SymbolTable>> {
         let LazySystemReader {
             raw_reader,
             symbol_table,
@@ -148,7 +157,9 @@ impl<'data, D: LazyDecoder<'data>> LazySystemReader<'data, D> {
     // scope is safe. Rust's experimental borrow checker, Polonius, is able to understand it.
     // Until Polonius is available, the method will live here instead.
     // [1]: https://github.com/rust-lang/rust/issues/70255
-    pub fn next_value<'top>(&'top mut self) -> IonResult<Option<LazyValue<'top, 'data, D>>> {
+    pub fn next_value<'top>(
+        &'top mut self,
+    ) -> IonResult<Option<LazyValue<'top, 'data, D, SymbolTable>>> {
         let LazySystemReader {
             raw_reader,
             symbol_table,

@@ -6,7 +6,7 @@ use crate::lazy::binary::raw::annotations_iterator::RawBinaryAnnotationsIterator
 use crate::lazy::binary::raw::r#struct::LazyRawBinaryStruct;
 use crate::lazy::binary::raw::sequence::LazyRawBinarySequence;
 use crate::lazy::decoder::private::LazyRawValuePrivate;
-use crate::lazy::decoder::LazyRawValue;
+use crate::lazy::decoder::{LazyRawAnnotated, LazyRawTyped, LazyRawValue};
 use crate::lazy::encoding::BinaryEncoding;
 use crate::lazy::raw_value_ref::RawValueRef;
 use crate::lazy::str_ref::StrRef;
@@ -42,7 +42,7 @@ impl<'a> Debug for LazyRawBinaryValue<'a> {
     }
 }
 
-type ValueParseResult<'data, F> = IonResult<RawValueRef<'data, F>>;
+pub type ValueParseResult<'data, F> = IonResult<RawValueRef<'data, F>>;
 
 impl<'data> LazyRawValuePrivate<'data> for LazyRawBinaryValue<'data> {
     fn field_name(&self) -> IonResult<RawSymbolTokenRef<'data>> {
@@ -56,17 +56,21 @@ impl<'data> LazyRawValuePrivate<'data> for LazyRawBinaryValue<'data> {
     }
 }
 
-impl<'data> LazyRawValue<'data, BinaryEncoding> for LazyRawBinaryValue<'data> {
+impl<'data> LazyRawTyped for LazyRawBinaryValue<'data> {
     fn ion_type(&self) -> IonType {
         self.ion_type()
     }
+}
 
-    fn is_null(&self) -> bool {
-        self.is_null()
-    }
-
+impl<'data> LazyRawAnnotated<'data, BinaryEncoding> for LazyRawBinaryValue<'data> {
     fn annotations(&self) -> RawBinaryAnnotationsIterator<'data> {
         self.annotations()
+    }
+}
+
+impl<'data> LazyRawValue<'data, BinaryEncoding> for LazyRawBinaryValue<'data> {
+    fn is_null(&self) -> bool {
+        self.is_null()
     }
 
     fn read(&self) -> IonResult<RawValueRef<'data, BinaryEncoding>> {
@@ -93,34 +97,22 @@ impl<'data> LazyRawBinaryValue<'data> {
     /// Returns an `ImmutableBuffer` that contains the bytes comprising this value's encoded
     /// annotations sequence.
     fn annotations_sequence(&self) -> ImmutableBuffer<'data> {
-        let offset_and_length = self
-            .encoded_value
-            .annotations_sequence_offset()
-            .map(|offset| {
-                (
-                    offset,
-                    self.encoded_value.annotations_sequence_length().unwrap(),
-                )
+        let annotation_span = self.encoded_value.annotations_sequence_range();
+        let (offset, len) = annotation_span
+            .map(|span| (span.start - self.input.offset(), span.len()))
+            .unwrap_or_else(|| {
+                // A value's binary layout is:
+                //
+                //     field_id? | annotation_sequence? | type_descriptor | length? | body
+                //
+                // If this value has no annotation sequence, then the first byte after the
+                // field ID is the type descriptor.
+                //
+                // If there is no field ID, field_id_length will be zero.
+                (self.encoded_value.field_id_length as usize, 0)
             });
-        let (sequence_offset, sequence_length) = match offset_and_length {
-            None => {
-                return self
-                    .input
-                    // A value's binary layout is:
-                    //
-                    //     field_id? | annotation_sequence? | type_descriptor | length? | body
-                    //
-                    // If this value has no annotation sequence, then the first byte after the
-                    // field ID is the type descriptor.
-                    //
-                    // If there is no field ID, field_id_length will be zero.
-                    .slice(self.encoded_value.field_id_length as usize, 0);
-            }
-            Some(offset_and_length) => offset_and_length,
-        };
-        let local_sequence_offset = sequence_offset - self.input.offset();
 
-        self.input.slice(local_sequence_offset, sequence_length)
+        self.input.slice(offset, len)
     }
 
     /// Returns an iterator over this value's unresolved annotation symbols.

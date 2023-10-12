@@ -188,6 +188,9 @@ mod types;
 #[cfg(feature = "experimental-ion-hash")]
 pub mod ion_hash;
 
+#[cfg(feature = "experimental-path-extractor")]
+pub mod ion_path_extractor;
+
 #[cfg(feature = "experimental-lazy-reader")]
 pub mod lazy;
 // Experimental Streaming APIs
@@ -225,7 +228,7 @@ pub use {
     // Public as a workaround for: https://github.com/amazon-ion/ion-rust/issues/484
     reader::integration_testing,
     reader::{Reader, ReaderBuilder, StreamItem, UserReader},
-    symbol_table::SymbolTable,
+    symbol_table::{LassoTable, SymbolArena, SymbolLookup, SymbolRefTable, SymbolTable},
     system_reader::{SystemReader, SystemStreamItem},
     text::non_blocking::raw_text_reader::RawTextReader,
     text::raw_text_writer::{RawTextWriter, RawTextWriterBuilder},

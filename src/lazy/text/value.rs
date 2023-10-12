@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 
 use crate::lazy::decoder::private::LazyRawValuePrivate;
-use crate::lazy::decoder::{LazyDecoder, LazyRawValue};
+use crate::lazy::decoder::{LazyDecoder, LazyRawAnnotated, LazyRawTyped, LazyRawValue};
 use crate::lazy::encoding::TextEncoding;
 use crate::lazy::raw_value_ref::RawValueRef;
 use crate::lazy::text::buffer::TextBufferView;
@@ -33,16 +33,13 @@ impl<'data> LazyRawValuePrivate<'data> for LazyRawTextValue<'data> {
         self.encoded_value.field_name(self.input)
     }
 }
-
-impl<'data> LazyRawValue<'data, TextEncoding> for LazyRawTextValue<'data> {
+impl<'data> LazyRawTyped for LazyRawTextValue<'data> {
     fn ion_type(&self) -> IonType {
         self.encoded_value.ion_type()
     }
+}
 
-    fn is_null(&self) -> bool {
-        self.encoded_value.is_null()
-    }
-
+impl<'data> LazyRawAnnotated<'data, TextEncoding> for LazyRawTextValue<'data> {
     fn annotations(&self) -> <TextEncoding as LazyDecoder<'data>>::AnnotationsIterator {
         let span = self
             .encoded_value
@@ -52,6 +49,11 @@ impl<'data> LazyRawValue<'data, TextEncoding> for LazyRawTextValue<'data> {
             .input
             .slice(span.start - self.input.offset(), span.len());
         RawTextAnnotationsIterator::new(annotations_bytes)
+    }
+}
+impl<'data> LazyRawValue<'data, TextEncoding> for LazyRawTextValue<'data> {
+    fn is_null(&self) -> bool {
+        self.encoded_value.is_null()
     }
 
     fn read(&self) -> IonResult<RawValueRef<'data, TextEncoding>> {

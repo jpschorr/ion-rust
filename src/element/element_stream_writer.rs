@@ -2,6 +2,7 @@ use crate::element::builders::StructBuilder;
 use crate::ion_writer::IonWriter;
 use crate::raw_symbol_token_ref::{AsRawSymbolTokenRef, RawSymbolTokenRef};
 use crate::result::IonFailure;
+use crate::symbol_table::SymbolLookup;
 use crate::{Annotations, Element, IntoAnnotatedElement, Value};
 use crate::{Bytes, Decimal, Int, IonResult, IonType, Str, Symbol, SymbolTable, Timestamp};
 

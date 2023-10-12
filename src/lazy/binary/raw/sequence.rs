@@ -3,7 +3,7 @@ use crate::lazy::binary::raw::annotations_iterator::RawBinaryAnnotationsIterator
 use crate::lazy::binary::raw::reader::DataSource;
 use crate::lazy::binary::raw::value::LazyRawBinaryValue;
 use crate::lazy::decoder::private::LazyContainerPrivate;
-use crate::lazy::decoder::LazyRawSequence;
+use crate::lazy::decoder::{LazyRawAnnotated, LazyRawSequence, LazyRawTyped};
 use crate::lazy::encoding::BinaryEncoding;
 use crate::{IonResult, IonType};
 use std::fmt;
@@ -33,16 +33,20 @@ impl<'data> LazyContainerPrivate<'data, BinaryEncoding> for LazyRawBinarySequenc
     }
 }
 
-impl<'data> LazyRawSequence<'data, BinaryEncoding> for LazyRawBinarySequence<'data> {
-    type Iterator = RawBinarySequenceIterator<'data>;
-
-    fn annotations(&self) -> RawBinaryAnnotationsIterator<'data> {
-        self.value.annotations()
-    }
-
+impl<'data> LazyRawTyped for LazyRawBinarySequence<'data> {
     fn ion_type(&self) -> IonType {
         self.value.ion_type()
     }
+}
+
+impl<'data> LazyRawAnnotated<'data, BinaryEncoding> for LazyRawBinarySequence<'data> {
+    fn annotations(&self) -> RawBinaryAnnotationsIterator<'data> {
+        self.value.annotations()
+    }
+}
+
+impl<'data> LazyRawSequence<'data, BinaryEncoding> for LazyRawBinarySequence<'data> {
+    type Iterator = RawBinarySequenceIterator<'data>;
 
     fn iter(&self) -> Self::Iterator {
         LazyRawBinarySequence::iter(self)

@@ -1,7 +1,7 @@
 use crate::lazy::decoder::LazyDecoder;
 use crate::lazy::str_ref::StrRef;
 use crate::result::IonFailure;
-use crate::{Decimal, Int, IonResult, IonType, RawSymbolTokenRef, Timestamp};
+use crate::{Decimal, Int, IonError, IonResult, IonType, RawSymbolTokenRef, Timestamp};
 use std::fmt::{Debug, Formatter};
 
 /// As RawValueRef represents a reference to an unresolved value read from the data stream.
@@ -68,116 +68,161 @@ impl<'data, D: LazyDecoder<'data>> Debug for RawValueRef<'data, D> {
 }
 
 impl<'data, D: LazyDecoder<'data>> RawValueRef<'data, D> {
-    pub fn expect_null(self) -> IonResult<IonType> {
+    pub fn maybe_null(self) -> Option<IonType> {
         if let RawValueRef::Null(ion_type) = self {
-            Ok(ion_type)
+            Some(ion_type)
         } else {
-            IonResult::decoding_error("expected a null")
+            None
         }
     }
 
+    pub fn expect_null(self) -> IonResult<IonType> {
+        self.maybe_null()
+            .ok_or_else(|| IonError::decoding_error("expected a null"))
+    }
+
+    pub fn maybe_bool(self) -> Result<bool, Self> {
+        match self {
+            RawValueRef::Bool(b) => Ok(b),
+            _ => Err(self),
+        }
+    }
     pub fn expect_bool(self) -> IonResult<bool> {
-        if let RawValueRef::Bool(b) = self {
-            Ok(b)
-        } else {
-            IonResult::decoding_error("expected a bool")
-        }
+        self.maybe_bool()
+            .map_err(|_| IonError::decoding_error("expected a bool"))
     }
 
+    pub fn maybe_int(self) -> Result<Int, Self> {
+        match self {
+            RawValueRef::Int(i) => Ok(i),
+            _ => Err(self),
+        }
+    }
     pub fn expect_int(self) -> IonResult<Int> {
-        if let RawValueRef::Int(i) = self {
-            Ok(i)
-        } else {
-            IonResult::decoding_error("expected an int")
-        }
+        self.maybe_int()
+            .map_err(|_| IonError::decoding_error("expected a int"))
     }
 
+    pub fn maybe_i64(self) -> Result<i64, Self> {
+        match self {
+            RawValueRef::Int(ref i) => i.as_i64().ok_or_else(|| self),
+            _ => Err(self),
+        }
+    }
     pub fn expect_i64(self) -> IonResult<i64> {
-        if let RawValueRef::Int(i) = self {
-            i.expect_i64()
-        } else {
-            IonResult::decoding_error(format!("expected an i64 (int), found: {:?}", self))
-        }
+        self.maybe_i64().map_err(|val| {
+            IonError::decoding_error(format!("expected an i64 (int), found: {:?}", val))
+        })
     }
 
+    pub fn maybe_float(self) -> Result<f64, Self> {
+        match self {
+            RawValueRef::Float(f) => Ok(f),
+            _ => Err(self),
+        }
+    }
     pub fn expect_float(self) -> IonResult<f64> {
-        if let RawValueRef::Float(f) = self {
-            Ok(f)
-        } else {
-            IonResult::decoding_error("expected a float")
-        }
+        self.maybe_float()
+            .map_err(|_| IonError::decoding_error("expected a float"))
     }
 
+    pub fn maybe_decimal(self) -> Result<Decimal, Self> {
+        match self {
+            RawValueRef::Decimal(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
     pub fn expect_decimal(self) -> IonResult<Decimal> {
-        if let RawValueRef::Decimal(d) = self {
-            Ok(d)
-        } else {
-            IonResult::decoding_error("expected a decimal")
-        }
+        self.maybe_decimal()
+            .map_err(|_| IonError::decoding_error("expected a decimal"))
     }
 
+    pub fn maybe_timestamp(self) -> Result<Timestamp, Self> {
+        match self {
+            RawValueRef::Timestamp(t) => Ok(t),
+            _ => Err(self),
+        }
+    }
     pub fn expect_timestamp(self) -> IonResult<Timestamp> {
-        if let RawValueRef::Timestamp(t) = self {
-            Ok(t)
-        } else {
-            IonResult::decoding_error("expected a timestamp")
-        }
+        self.maybe_timestamp()
+            .map_err(|_| IonError::decoding_error("expected a timestamp"))
     }
 
+    pub fn maybe_string(self) -> Result<StrRef<'data>, Self> {
+        match self {
+            RawValueRef::String(s) => Ok(s),
+            _ => Err(self),
+        }
+    }
     pub fn expect_string(self) -> IonResult<StrRef<'data>> {
-        if let RawValueRef::String(s) = self {
-            Ok(s)
-        } else {
-            IonResult::decoding_error("expected a string")
-        }
+        self.maybe_string()
+            .map_err(|_| IonError::decoding_error("expected a string"))
     }
 
+    pub fn maybe_symbol(self) -> Result<RawSymbolTokenRef<'data>, Self> {
+        match self {
+            RawValueRef::Symbol(s) => Ok(s),
+            _ => Err(self),
+        }
+    }
     pub fn expect_symbol(self) -> IonResult<RawSymbolTokenRef<'data>> {
-        if let RawValueRef::Symbol(s) = self {
-            Ok(s.clone())
-        } else {
-            IonResult::decoding_error("expected a symbol")
-        }
+        self.maybe_symbol()
+            .map_err(|_| IonError::decoding_error("expected a symbol"))
     }
 
+    pub fn maybe_blob(self) -> Result<&'data [u8], Self> {
+        match self {
+            RawValueRef::Blob(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
     pub fn expect_blob(self) -> IonResult<&'data [u8]> {
-        if let RawValueRef::Blob(b) = self {
-            Ok(b)
-        } else {
-            IonResult::decoding_error("expected a blob")
-        }
+        self.maybe_blob()
+            .map_err(|_| IonError::decoding_error("expected a blob"))
     }
 
+    pub fn maybe_clob(self) -> Result<&'data [u8], Self> {
+        match self {
+            RawValueRef::Clob(d) => Ok(d),
+            _ => Err(self),
+        }
+    }
     pub fn expect_clob(self) -> IonResult<&'data [u8]> {
-        if let RawValueRef::Clob(c) = self {
-            Ok(c)
-        } else {
-            IonResult::decoding_error("expected a clob")
-        }
+        self.maybe_clob()
+            .map_err(|_| IonError::decoding_error("expected a clob"))
     }
 
+    pub fn maybe_list(self) -> Result<D::Sequence, Self> {
+        match self {
+            RawValueRef::List(seq) => Ok(seq),
+            _ => Err(self),
+        }
+    }
     pub fn expect_list(self) -> IonResult<D::Sequence> {
-        if let RawValueRef::List(s) = self {
-            Ok(s)
-        } else {
-            IonResult::decoding_error("expected a list")
-        }
+        self.maybe_list()
+            .map_err(|_| IonError::decoding_error("expected a list"))
     }
 
+    pub fn maybe_sexp(self) -> Result<D::Sequence, Self> {
+        match self {
+            RawValueRef::SExp(seq) => Ok(seq),
+            _ => Err(self),
+        }
+    }
     pub fn expect_sexp(self) -> IonResult<D::Sequence> {
-        if let RawValueRef::SExp(s) = self {
-            Ok(s)
-        } else {
-            IonResult::decoding_error("expected a sexp")
-        }
+        self.maybe_sexp()
+            .map_err(|_| IonError::decoding_error("expected a sexp"))
     }
 
-    pub fn expect_struct(self) -> IonResult<D::Struct> {
-        if let RawValueRef::Struct(s) = self {
-            Ok(s)
-        } else {
-            IonResult::decoding_error(format!("expected a struct, found: {:?}", self))
+    pub fn maybe_struct(self) -> Result<D::Struct, Self> {
+        match self {
+            RawValueRef::Struct(strct) => Ok(strct),
+            _ => Err(self),
         }
+    }
+    pub fn expect_struct(self) -> IonResult<D::Struct> {
+        self.maybe_struct()
+            .map_err(|val| IonError::decoding_error(format!("expected a struct, found: {:?}", val)))
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::lazy::raw_stream_item::RawStreamItem;
 use crate::lazy::raw_value_ref::RawValueRef;
 use crate::result::IonFailure;
+use crate::symbol_table::SymbolLookup;
 use crate::{IonResult, IonType, RawSymbolTokenRef};
 use std::fmt::Debug;
 
@@ -18,7 +19,35 @@ pub trait LazyDecoder<'data>: Sized + Debug + Clone {
     /// A struct whose fields may be accessed iteratively or by field name.
     type Struct: LazyRawStruct<'data, Self>;
     /// An iterator over the annotations on the input stream's values.
-    type AnnotationsIterator: Iterator<Item = IonResult<RawSymbolTokenRef<'data>>>;
+    type AnnotationsIterator: AnnotationsMatch<'data>
+        + Iterator<Item = IonResult<RawSymbolTokenRef<'data>>>;
+}
+
+pub trait AnnotationsMatch<'data> {
+    fn are<I: IntoIterator<Item = RawSymbolTokenRef<'data>>>(
+        self,
+        annotations_to_match: I,
+    ) -> IonResult<bool>;
+}
+
+impl<'data, T> AnnotationsMatch<'data> for T
+where
+    T: Iterator<Item = IonResult<RawSymbolTokenRef<'data>>>,
+{
+    fn are<I: IntoIterator<Item = RawSymbolTokenRef<'data>>>(
+        mut self,
+        annotations_to_match: I,
+    ) -> IonResult<bool> {
+        for to_match in annotations_to_match {
+            match self.next() {
+                Some(Ok(actual)) if actual == to_match => {}
+                Some(Err(e)) => return Err(e),
+                Some(_) | None => return Ok(false),
+            }
+        }
+        // We've exhausted `annotations_to_match`, now make sure `self` is empty
+        Ok(self.next().is_none())
+    }
 }
 
 // This private module houses public traits. This allows the public traits below to depend on them,
@@ -59,32 +88,35 @@ pub trait LazyRawReader<'data, D: LazyDecoder<'data>> {
     fn next<'a>(&'a mut self) -> IonResult<RawStreamItem<'data, D>>;
 }
 
-pub trait LazyRawValue<'data, D: LazyDecoder<'data>>:
-    private::LazyRawValuePrivate<'data> + Clone + Debug
-{
-    fn ion_type(&self) -> IonType;
-    fn is_null(&self) -> bool;
+pub trait LazyRawAnnotated<'data, D: LazyDecoder<'data>> {
     fn annotations(&self) -> D::AnnotationsIterator;
+}
+
+pub trait LazyRawTyped {
+    fn ion_type(&self) -> IonType;
+}
+
+pub trait LazyRawValue<'data, D: LazyDecoder<'data>>:
+    LazyRawAnnotated<'data, D> + LazyRawTyped + private::LazyRawValuePrivate<'data> + Clone + Debug
+{
+    fn is_null(&self) -> bool;
     fn read(&self) -> IonResult<RawValueRef<'data, D>>;
 }
 
 pub trait LazyRawSequence<'data, D: LazyDecoder<'data>>:
-    private::LazyContainerPrivate<'data, D> + Debug
+    LazyRawAnnotated<'data, D> + LazyRawTyped + private::LazyContainerPrivate<'data, D> + Debug
 {
     type Iterator: Iterator<Item = IonResult<D::Value>>;
-    fn annotations(&self) -> D::AnnotationsIterator;
-    fn ion_type(&self) -> IonType;
     fn iter(&self) -> Self::Iterator;
     fn as_value(&self) -> D::Value;
 }
 
 pub trait LazyRawStruct<'data, D: LazyDecoder<'data>>:
-    private::LazyContainerPrivate<'data, D> + Debug
+    LazyRawAnnotated<'data, D> + LazyRawTyped + private::LazyContainerPrivate<'data, D> + Debug
 {
     type Field: LazyRawField<'data, D>;
     type Iterator: Iterator<Item = IonResult<Self::Field>>;
 
-    fn annotations(&self) -> D::AnnotationsIterator;
     fn find(&self, name: &str) -> IonResult<Option<D::Value>>;
     fn get(&self, name: &str) -> IonResult<Option<RawValueRef<'data, D>>>;
     fn get_expected(&self, name: &str) -> IonResult<RawValueRef<'data, D>> {

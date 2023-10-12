@@ -1,12 +1,14 @@
 use crate::lazy::decoder::private::{LazyContainerPrivate, LazyRawFieldPrivate};
-use crate::lazy::decoder::{LazyRawField, LazyRawStruct, LazyRawValue};
+use crate::lazy::decoder::{
+    LazyRawAnnotated, LazyRawField, LazyRawStruct, LazyRawTyped, LazyRawValue,
+};
 use crate::lazy::encoding::TextEncoding;
 use crate::lazy::raw_value_ref::RawValueRef;
 use crate::lazy::text::buffer::TextBufferView;
 use crate::lazy::text::parse_result::{AddContext, ToIteratorOutput};
 use crate::lazy::text::value::{LazyRawTextValue, RawTextAnnotationsIterator};
 use crate::raw_symbol_token_ref::AsRawSymbolTokenRef;
-use crate::{IonResult, RawSymbolTokenRef};
+use crate::{IonResult, IonType, RawSymbolTokenRef};
 use nom::character::streaming::satisfy;
 use std::ops::Range;
 
@@ -155,14 +157,20 @@ impl<'data> LazyContainerPrivate<'data, TextEncoding> for LazyRawTextStruct<'dat
         LazyRawTextStruct { value }
     }
 }
+impl<'data> LazyRawTyped for LazyRawTextStruct<'data> {
+    fn ion_type(&self) -> IonType {
+        self.value.ion_type()
+    }
+}
 
-impl<'data> LazyRawStruct<'data, TextEncoding> for LazyRawTextStruct<'data> {
-    type Field = LazyRawTextField<'data>;
-    type Iterator = RawTextStructIterator<'data>;
-
+impl<'data> LazyRawAnnotated<'data, TextEncoding> for LazyRawTextStruct<'data> {
     fn annotations(&self) -> RawTextAnnotationsIterator<'data> {
         self.value.annotations()
     }
+}
+impl<'data> LazyRawStruct<'data, TextEncoding> for LazyRawTextStruct<'data> {
+    type Field = LazyRawTextField<'data>;
+    type Iterator = RawTextStructIterator<'data>;
 
     fn find(&self, name: &str) -> IonResult<Option<LazyRawTextValue<'data>>> {
         self.find(name)

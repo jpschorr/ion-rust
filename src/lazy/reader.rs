@@ -6,7 +6,7 @@ use crate::lazy::encoding::BinaryEncoding;
 use crate::lazy::system_reader::LazySystemReader;
 use crate::lazy::value::LazyValue;
 use crate::result::IonFailure;
-use crate::{IonError, IonResult};
+use crate::{IonError, IonResult, SymbolTable};
 
 /// A binary reader that only reads each value that it visits upon request (that is: lazily).
 ///
@@ -60,16 +60,22 @@ pub struct LazyReader<'data, D: LazyDecoder<'data>> {
 }
 
 impl<'data, D: LazyDecoder<'data>> LazyReader<'data, D> {
+    pub fn from_reader(
+        system_reader: LazySystemReader<'data, D>,
+    ) -> IonResult<LazyReader<'data, D>> {
+        Ok(LazyReader { system_reader })
+    }
+
     /// Returns the next top-level value in the input stream as `Ok(Some(lazy_value))`.
     /// If there are no more top-level values in the stream, returns `Ok(None)`.
     /// If the next value is incomplete (that is: only part of it is in the input buffer) or if the
     /// input buffer contains invalid data, returns `Err(ion_error)`.
-    pub fn next<'top>(&'top mut self) -> IonResult<Option<LazyValue<'top, 'data, D>>> {
+    pub fn next<'top>(&'top mut self) -> IonResult<Option<LazyValue<'top, 'data, D, SymbolTable>>> {
         self.system_reader.next_value()
     }
 
     /// Like [`Self::next`], but returns an `IonError` if there are no more values in the stream.
-    pub fn expect_next<'top>(&'top mut self) -> IonResult<LazyValue<'top, 'data, D>> {
+    pub fn expect_next<'top>(&'top mut self) -> IonResult<LazyValue<'top, 'data, D, SymbolTable>> {
         self.next()?
             .ok_or_else(|| IonError::decoding_error("expected another top-level value"))
     }
